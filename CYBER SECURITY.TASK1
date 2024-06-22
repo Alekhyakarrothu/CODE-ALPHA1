@@ -1,0 +1,57 @@
+from scapy.all import *
+import argparse
+from collections import Counter
+
+def packet_callback(packet):
+    if IP in packet:
+        src_ip = packet[IP].src
+        dst_ip = packet[IP].dst
+        proto = packet[IP].proto
+        
+        if TCP in packet:
+            src_port = packet[TCP].sport
+            dst_port = packet[TCP].dport
+            print(f"TCP {src_ip}:{src_port} -> {dst_ip}:{dst_port}")
+        elif UDP in packet:
+            src_port = packet[UDP].sport
+            dst_port = packet[UDP].dport
+            print(f"UDP {src_ip}:{src_port} -> {dst_ip}:{dst_port}")
+        else:
+            print(f"Other IP {src_ip} -> {dst_ip}")
+        
+        return (src_ip, dst_ip, proto)
+    return None
+
+def analyze_traffic(packets):
+    ip_counter = Counter()
+    proto_counter = Counter()
+
+    for src_ip, dst_ip, proto in packets:
+        ip_counter.update([src_ip, dst_ip])
+        proto_counter.update([proto])
+
+    print("\nTop 5 IP addresses:")
+    for ip, count in ip_counter.most_common(5):
+        print(f"{ip}: {count}")
+
+    print("\nProtocol distribution:")
+    for proto, count in proto_counter.most_common():
+        print(f"{count}: {proto}")
+
+def main(interface, packet_count):
+    print(f"Starting capture on interface {interface}")
+    packets = sniff(iface=interface, prn=packet_callback, count=packet_count, store=False)
+    
+    # Filter out None values
+    packet_data = [p for p in packets if p is not None]
+    
+    print(f"\nCapture complete. Analyzed {len(packet_data)} packets.")
+    analyze_traffic(packet_data)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Simple Network Sniffer")
+    parser.add_argument("-i", "--interface", help="Network interface to sniff on", required=True)
+    parser.add_argument("-c", "--count", type=int, default=100, help="Number of packets to capture")
+    args = parser.parse_args()
+
+    main(args.interface, args.count)
